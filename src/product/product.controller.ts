@@ -1,38 +1,79 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+  ParseIntPipe,
+  Put,
+} from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { CurrentUser } from 'src/user/decorators/current-user.decorator';
 import type { JWTPaylodType } from 'src/utils/types';
 import { AuthGuard } from '../user/guard/auth.guard';
+import { AuthRolesGuard } from 'src/user/guard/auth-roles.guard';
+import { Roles } from 'src/user/decorators/user-role.decorator';
+import { UserRole } from 'generated/prisma/enums';
 
 @Controller('api/product')
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Post()
-  @UseGuards(AuthGuard)
-  create(@Body() dto: CreateProductDto,@CurrentUser() payload:JWTPaylodType) {
-    return this.productService.create(dto,payload.id);
+  @UseGuards(AuthGuard, AuthRolesGuard)
+  @Roles(UserRole.USER, UserRole.ADMIN)
+  create(@Body() dto: CreateProductDto, @CurrentUser() payload: JWTPaylodType) {
+    return this.productService.create(dto, payload.id);
   }
 
   @Get()
-  findAll() {
-    return this.productService.findAll();
+  findAll(
+    @Query('title') title?: string,
+    @Query('minPrice') minPrice?: string,
+    @Query('maxPrice') maxPrice?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.productService.findAll(
+      title,
+      minPrice,
+      maxPrice,
+      categoryId,
+      page,
+      limit
+    );
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.productService.findOne(+id);
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.productService.findOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productService.update(+id, updateProductDto);
+  @Put(':id')
+  @UseGuards(AuthGuard, AuthRolesGuard)
+  @Roles(UserRole.USER, UserRole.ADMIN)
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateProductDto,
+    @CurrentUser() payload: JWTPaylodType,
+  ) {
+    return this.productService.update(id, payload.id, payload.role, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productService.remove(+id);
+  @UseGuards(AuthGuard, AuthRolesGuard)
+  @Roles(UserRole.USER, UserRole.ADMIN)
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() payload: JWTPaylodType,
+  ) {
+    return this.productService.remove(id, payload.id, payload.role);
   }
 }

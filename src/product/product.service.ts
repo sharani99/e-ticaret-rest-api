@@ -1,9 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserService } from 'src/user/user.service';
-import { connect } from 'http2';
+import { UserRole } from 'generated/prisma/enums';
 
 @Injectable()
 export class ProductService {
@@ -48,19 +53,146 @@ export class ProductService {
     return product;
   }
 
-  findAll() {
-    return `This action returns all product`;
+  async findAll(
+    title?: string,
+    minPrice?: string,
+    maxPrice?: string,
+    categoryId?: string,
+    page?: string,
+    limit?: string,
+  ) {
+    const min = minPrice !== undefined ? Number(minPrice) : undefined;
+    const max = maxPrice !== undefined ? Number(maxPrice) : undefined;
+    const category = categoryId !== undefined ? Number(categoryId) : undefined;
+    const pageNumber = page !== undefined ? Number(page) : 1;
+    const limitNumber = limit !== undefined ? Number(limit) : 10;
+
+    if (
+      (min !== undefined && !Number.isFinite(min)) ||
+      (max !== undefined && !Number.isFinite(max)) ||
+      (min !== undefined && max !== undefined && min > max)
+    ) {
+      throw new BadRequestException('Geçerli bir fiyat aralığı giriniz');
+    }
+
+    if (
+      category !== undefined &&
+      (!Number.isInteger(category) || category <= 0)
+    ) {
+      throw new BadRequestException(
+        'categoryId pozitif bir tam sayı olmalıdır',
+      );
+    }
+
+    if (
+      !Number.isInteger(pageNumber) ||
+      pageNumber <= 0 ||
+      !Number.isInteger(limitNumber) ||
+      limitNumber <= 0
+    ) {
+      throw new BadRequestException('page ve limit pozitif tam sayı olmalıdır');
+    }
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        ...(title !== undefined && {
+          title: {
+            contains: title,
+            mode: 'insensitive',
+          },
+        }),
+
+        ...(min !== undefined || max !== undefined
+          ? {
+              price: {
+                ...(min !== undefined && { gte: min }),
+                ...(max !== undefined && { lte: max }),
+              },
+            }
+          : {}),
+
+        ...(category !== undefined && {
+          categoryId: category,
+        }),
+      },
+
+      skip: (pageNumber - 1) * limitNumber,
+      take: limitNumber,
+
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+        },
+        category: true,
+      },
+    });
+
+    return products;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} product`;
+  async findOne(id: number) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+        },
+        category: true,
+      },
+    });
+    if (!product) throw new NotFoundException('ürün bulunamadı');
+    return product;
   }
 
-  update(id: number, updateProductDto: UpdateProductDto) {
-    return `This action updates a #${id} product`;
+  async update(
+    id: number,
+    userId: number,
+    userRole: UserRole,
+    dto: UpdateProductDto,
+  ) {
+    const { title, description, price, stock } = dto;
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Ürün bulunamadı');
+    }
+
+    if (product.userId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('Bu ürünü güncelleme yetkiniz yok');
+    }
+
+    const updatedProduct = await this.prisma.product.update({
+      where: { id },
+      data: {
+        title,
+        description,
+        price,
+        stock,
+      },
+    });
+
+    return updatedProduct;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} product`;
+  async remove(id: number, userId: number, userRole: UserRole) {
+    const product = await this.findOne(id);
+
+    if (product.userId !== userId && userRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('Bu ürünü silme yetkiniz yok');
+    }
+
+    return this.prisma.product.delete({
+      where: { id },
+    });
   }
 }
