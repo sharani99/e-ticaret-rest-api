@@ -3,13 +3,16 @@ import {
   Get,
   Post,
   Body,
-  Patch,
   Param,
   Delete,
   UseGuards,
   Query,
   ParseIntPipe,
   Put,
+  BadRequestException,
+  UseInterceptors,
+  UploadedFile,
+  Res,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -20,6 +23,9 @@ import { AuthGuard } from '../user/guard/auth.guard';
 import { AuthRolesGuard } from 'src/user/guard/auth-roles.guard';
 import { Roles } from 'src/user/decorators/user-role.decorator';
 import { UserRole } from 'generated/prisma/enums';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { basename } from 'path';
+import type { Response } from 'express';
 
 @Controller('api/product')
 export class ProductController {
@@ -47,8 +53,41 @@ export class ProductController {
       maxPrice,
       categoryId,
       page,
-      limit
+      limit,
     );
+  }
+
+  @Post(':id/image')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(FileInterceptor('product-image'))
+  uploadProductImage(
+    @CurrentUser() payload: JWTPaylodType,
+    @UploadedFile() file: Express.Multer.File,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Dosya sağlanmadı!');
+    }
+    return this.productService.uploadProductImage(
+      payload.id,
+      file.filename,
+      id,
+    );
+  }
+
+  @Delete(':id/image')
+  @UseGuards(AuthGuard)
+  removeProductImage(
+    @CurrentUser() payload: JWTPaylodType,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.productService.removeProductImage(payload.id, id);
+  }
+
+  @Get('images/:image')
+  @UseGuards(AuthGuard)
+  showPorfileImage(@Param('image') image: string, @Res() res: Response) {
+    return res.sendFile(basename(image), { root: 'images/user' });
   }
 
   @Get(':id')

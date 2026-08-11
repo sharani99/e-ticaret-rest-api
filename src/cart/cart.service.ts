@@ -14,7 +14,6 @@ export class CartService {
   async addToCart(userId: number, dto: AddToCartDto) {
     const { productId, quantity } = dto;
 
-    // 1. Ürün var mı?
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
     });
@@ -23,12 +22,12 @@ export class CartService {
       throw new NotFoundException('Ürün bulunamadı');
     }
 
-    // 2. İstenen miktar stoktan fazla mı?
+   
     if (quantity > product.stock) {
       throw new BadRequestException('Yeterli stok yok');
     }
 
-    // 3. Kullanıcının sepetini bul, yoksa oluştur
+   
     let cart = await this.prisma.cart.findUnique({
       where: { userId },
     });
@@ -45,7 +44,7 @@ export class CartService {
       });
     }
 
-    // 4. Bu ürün zaten sepette mi?
+   
     const cartItem = await this.prisma.cartItem.findUnique({
       where: {
         cartId_productId: {
@@ -55,7 +54,7 @@ export class CartService {
       },
     });
 
-    // 5. Ürün zaten sepetteyse quantity artır
+   
     if (cartItem) {
       const newQuantity = cartItem.quantity + quantity;
 
@@ -76,7 +75,7 @@ export class CartService {
       });
     }
 
-    // 6. Sepette yoksa yeni CartItem oluştur
+    
     return this.prisma.cartItem.create({
       data: {
         cartId: cart.id,

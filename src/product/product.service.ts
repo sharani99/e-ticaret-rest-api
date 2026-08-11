@@ -9,6 +9,9 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserService } from 'src/user/user.service';
 import { UserRole } from 'generated/prisma/enums';
+import { basename, join } from 'path';
+import { existsSync } from 'fs';
+import { unlink } from 'fs/promises';
 
 @Injectable()
 export class ProductService {
@@ -132,6 +135,71 @@ export class ProductService {
     });
 
     return products;
+  }
+
+  async uploadProductImage(
+    userId: number,
+    newProductImage: string,
+    productId: number,
+  ) {
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id: productId,
+        userId,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Ürün bulunamadı');
+    }
+
+    if (product.imageUrl) {
+      await this.removeProductImage(userId, productId);
+    }
+
+    return this.prisma.product.update({
+      where: {
+        id: productId,
+      },
+      data: {
+        imageUrl: newProductImage,
+      },
+    });
+  }
+
+  async removeProductImage(userId: number, productId: number) {
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id: productId,
+        userId,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Ürün bulunamadı');
+    }
+
+    if (product.imageUrl) {
+      const imagePath = join(
+        process.cwd(),
+        'images',
+        'products',
+        basename(product.imageUrl),
+      );
+
+      if (existsSync(imagePath)) {
+        await unlink(imagePath);
+      }
+    }
+
+    return this.prisma.product.update({
+      where: {
+        id: productId,
+      },
+      data: {
+        imageUrl: null,
+      },
+    });
   }
 
   async findOne(id: number) {

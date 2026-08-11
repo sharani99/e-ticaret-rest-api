@@ -27,6 +27,7 @@ model User {
   email    String   @unique
   password String
   role     UserRole @default(USER)
+  
 
   products Product[]
   cart     Cart?
@@ -44,6 +45,7 @@ model Product {
   description String?
   price       Float
   stock       Int     @default(0)
+  imageUrl       String? @db.VarChar
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
