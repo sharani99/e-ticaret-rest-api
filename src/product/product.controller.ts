@@ -84,10 +84,10 @@ export class ProductController {
     return this.productService.removeProductImage(payload.id, id);
   }
 
-  @Get('images/:image')
+  @Get('image/:image')
   @UseGuards(AuthGuard)
   showPorfileImage(@Param('image') image: string, @Res() res: Response) {
-    return res.sendFile(basename(image), { root: 'images/user' });
+    return res.sendFile(basename(image), { root: 'images/products' });
   }
 
   @Get(':id')

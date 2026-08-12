@@ -31,13 +31,13 @@ export class CartController {
     return this.cartService.getMyCart(payload.id);
   }
 
-  @Put(':id')
-  updateQuantity(
+  @Put(':id/decrease')
+  decreaseQuantity(
     @CurrentUser() payload: JWTPaylodType,
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto:UpdateCartItemDto
+    @Body() dto: UpdateCartItemDto,
   ) {
-    return this.cartService.updateQuantity(payload.id, id,dto);
+    return this.cartService.decreaseQuantity(payload.id, id, dto);
   }
 
   @Delete(':id')

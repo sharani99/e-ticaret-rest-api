@@ -6,6 +6,7 @@ import {
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { connect } from 'node:http2';
 
 @Injectable()
 export class CartService {
@@ -22,12 +23,10 @@ export class CartService {
       throw new NotFoundException('Ürün bulunamadı');
     }
 
-   
     if (quantity > product.stock) {
       throw new BadRequestException('Yeterli stok yok');
     }
 
-   
     let cart = await this.prisma.cart.findUnique({
       where: { userId },
     });
@@ -44,7 +43,6 @@ export class CartService {
       });
     }
 
-   
     const cartItem = await this.prisma.cartItem.findUnique({
       where: {
         cartId_productId: {
@@ -54,7 +52,6 @@ export class CartService {
       },
     });
 
-   
     if (cartItem) {
       const newQuantity = cartItem.quantity + quantity;
 
@@ -75,12 +72,19 @@ export class CartService {
       });
     }
 
-    
     return this.prisma.cartItem.create({
       data: {
-        cartId: cart.id,
-        productId,
         quantity,
+        cart: {
+          connect: {
+            id: cart.id,
+          },
+        },
+        product: {
+          connect: {
+            id: productId,
+          },
+        },
       },
       include: {
         product: true,
@@ -107,12 +111,15 @@ export class CartService {
     return cart;
   }
 
-  async updateQuantity(userId: number, itemId: number, dto: UpdateCartItemDto) {
+  async decreaseQuantity(
+    userId: number,
+    itemId: number,
+    dto: UpdateCartItemDto,
+  ) {
     const { quantity } = dto;
+
     const cartItem = await this.prisma.cartItem.findUnique({
-      where: {
-        id: itemId,
-      },
+      where: { id: itemId },
       include: {
         cart: true,
         product: true,
@@ -123,18 +130,20 @@ export class CartService {
       throw new NotFoundException('Sepet ürünü bulunamadı');
     }
 
-    if (cartItem?.cart.userId !== userId) {
-      throw new NotFoundException('bunu değiştiremessiniz');
+    if (cartItem.cart.userId !== userId) {
+      throw new NotFoundException('Bunu değiştiremezsiniz');
     }
 
-    if (quantity > cartItem.product.stock) {
-      throw new BadRequestException('Yeterli stok yok');
+    const newQuantity = cartItem.quantity - quantity;
+
+    if (newQuantity <= 0) {
+      throw new BadRequestException('Ürün miktarı 0 veya daha az olamaz');
     }
 
     return this.prisma.cartItem.update({
       where: { id: itemId },
       data: {
-        quantity,
+        quantity: newQuantity,
       },
       include: {
         product: true,
