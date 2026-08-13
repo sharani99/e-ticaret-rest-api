@@ -27,11 +27,11 @@ model User {
   email    String   @unique
   password String
   role     UserRole @default(USER)
-  
 
   products Product[]
   cart     Cart?
   orders   Order[]
+  reviews  Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -45,7 +45,7 @@ model Product {
   description String?
   price       Float
   stock       Int     @default(0)
-  imageUrl       String? @db.VarChar
+  imageUrl    String? @db.VarChar
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -55,6 +55,7 @@ model Product {
 
   cartItems  CartItem[]
   orderItems OrderItem[]
+  reviews    Review[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -130,4 +131,21 @@ model OrderItem {
   price    Float
 
   @@map("order_items")
+}
+
+model Review {
+  id      Int     @id @default(autoincrement())
+  rating  Int
+  comment String?
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, productId])
 }

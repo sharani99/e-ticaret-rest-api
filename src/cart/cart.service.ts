@@ -6,7 +6,7 @@ import {
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
-import { connect } from 'node:http2';
+
 
 @Injectable()
 export class CartService {
